@@ -8,7 +8,7 @@
 """
 
 __all__ = ("HttpError", "FuncArgsError", "Error", "MongoError", "MongoDuplicateKeyError",
-           "MongoInvalidNameError",)
+           "MongoInvalidNameError", "ConfigError")
 
 
 class Error(Exception):
@@ -70,6 +70,14 @@ class MongoInvalidNameError(MongoError):
 class FuncArgsError(Error):
     """
     处理函数参数不匹配引发的error
+    """
+
+    pass
+
+
+class ConfigError(Error):
+    """
+    主要处理config error
     """
 
     pass
