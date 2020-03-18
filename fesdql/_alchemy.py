@@ -35,7 +35,7 @@ class BasePagination(object):
     def __init__(self, session, name: str, page: int, per_page: int, total: int, items: List[Dict],
                  query_key: Dict, filter_key: Dict, sort: List[Tuple] = None):
         #: the unlimited query object that was used to create this
-        #: aiomysqlclient object.
+        #: aiomongoclient object.
         self.session = session
         # collection name
         self.name = name
@@ -113,12 +113,12 @@ class BaseMongo(object):
             username: mongo user
             passwd: mongo password
             pool_size: mongo pool size
-            fesdql_binds: binds config, eg:{"first":{"fesdql_mysql_host":"127.0.0.1",
-                                        "fesdql_mysql_port":3306,
-                                        "fesdql_mysql_username":"root",
-                                        "fesdql_mysql_passwd":"",
-                                        "fesdql_mysql_dbname":"dbname",
-                                        "fesdql_mysql_pool_size":10}}
+            fesdql_binds: binds config, eg:{"first":{"fesdql_mongo_host":"127.0.0.1",
+                                        "fesdql_mongo_port":3306,
+                                        "fesdql_mongo_username":"root",
+                                        "fesdql_mongo_passwd":"",
+                                        "fesdql_mongo_dbname":"dbname",
+                                        "fesdql_mongo_pool_size":10}}
 
         """
         self.app = app
@@ -246,10 +246,10 @@ class BaseMongo(object):
         if bind not in self.bind_pool:
             bind_conf: Dict = self.fesdql_binds[bind]
             self.bind_pool[bind] = self._create_engine(
-                host=bind_conf.get("fesdql_mysql_host"), port=bind_conf.get("fesdql_mysql_port"),
-                username=bind_conf.get("fesdql_mysql_username"), passwd=bind_conf.get("fesdql_mysql_passwd"),
-                pool_size=bind_conf.get("fesdql_mysql_pool_size") or self.pool_size,
-                dbname=bind_conf.get("fesdql_mysql_dbname"))
+                host=bind_conf.get("fesdql_mongo_host"), port=bind_conf.get("fesdql_mongo_port"),
+                username=bind_conf.get("fesdql_mongo_username"), passwd=bind_conf.get("fesdql_mongo_passwd"),
+                pool_size=bind_conf.get("fesdql_mongo_pool_size") or self.pool_size,
+                dbname=bind_conf.get("fesdql_mongo_dbname"))
 
     def verify_binds(self, ):
         """
@@ -266,8 +266,8 @@ class BaseMongo(object):
                 if not isinstance(bind, dict):
                     raise TypeError(f"fesdql_binds config {bind_name} type error, must be Dict.")
                 missing_items = []
-                for item in ["fesdql_mysql_host", "fesdql_mysql_port", "fesdql_mysql_username",
-                             "fesdql_mysql_passwd", "fesdql_mysql_dbname"]:
+                for item in ["fesdql_mongo_host", "fesdql_mongo_port", "fesdql_mongo_username",
+                             "fesdql_mongo_passwd", "fesdql_mongo_dbname"]:
                     if item not in bind:
                         missing_items.append(item)
                 if missing_items:

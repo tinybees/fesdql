@@ -481,10 +481,10 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
         Returns:
 
         """
-        self._verify_flask_app()  # 校验APP类型是否正确
-
         super().init_app(app, username=username, passwd=passwd, host=host, port=port, dbname=dbname,
                          pool_size=pool_size, **kwargs)
+        
+        self._verify_flask_app()  # 校验APP类型是否正确
 
         @app.before_first_request
         def open_connection():
