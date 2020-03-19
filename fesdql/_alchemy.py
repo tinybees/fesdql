@@ -18,11 +18,13 @@ from pymongo.database import Database
 
 from ._err_msg import mongo_msg
 from .err import ConfigError, FuncArgsError
+from .query import Query
 from .utils import _verify_message, under2camel
 
 __all__ = ("BasePagination", "BaseMongo", "AlchemyMixIn", "SessionMixIn")
 
 
+# noinspection PyProtectedMember
 class BasePagination(object):
     """Internal helper class returned by :meth:`BaseQuery.paginate`.  You
     can also construct it from any other SQLAlchemy query object if you are
@@ -32,27 +34,26 @@ class BasePagination(object):
 
     """
 
-    def __init__(self, session, name: str, page: int, per_page: int, total: int, items: List[Dict],
-                 query_key: Dict, filter_key: Dict, sort: List[Tuple] = None):
+    def __init__(self, session, query: Query, total: int, items: List[Dict], query_key: Dict):
         #: the unlimited query object that was used to create this
         #: aiomongoclient object.
         self.session = session
         # collection name
-        self.name = name
+        self.cname = query._cname
         #: the current page number (1 indexed)
-        self.page: int = page
+        self.page: int = query._page
         #: the number of items to be displayed on a page.
-        self.per_page: int = per_page
+        self.per_page: int = query._per_page
         #: the total number of items matching the query
         self.total: int = total
         #: the items for the current page
         self.items: List[Dict] = items
         # query key
         self.query_key: Dict = query_key
-        # filter key
-        self.filter_key: Dict = filter_key
+        # exclude key
+        self.exclude_key: Dict = query._exclude_key
         # sort key
-        self.sort: List[Tuple] = sort
+        self.sort: List[Tuple] = query._order_by
 
     @property
     def pages(self) -> int:

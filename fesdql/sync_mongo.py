@@ -16,6 +16,7 @@ from pymongo import MongoClient as MongodbClient
 from pymongo.database import Database
 from pymongo.errors import ConnectionFailure, DuplicateKeyError, InvalidName, PyMongoError
 
+from . import Query
 from ._alchemy import AlchemyMixIn, BaseMongo, BasePagination, SessionMixIn
 from ._err_msg import mongo_msg
 from .err import HttpError, MongoDuplicateKeyError, MongoError, MongoInvalidNameError
@@ -32,25 +33,27 @@ class Pagination(BasePagination):
 
     """
 
-    def __init__(self, session: 'Session', name: str, page: int, per_page: int, total: int, items: List[Dict],
-                 query_key: Dict, filter_key: Dict, sort: List[Tuple] = None):
-        super().__init__(session, name, page, per_page, total, items, query_key, filter_key, sort)
+    def __init__(self, session, query: Query, total: int, items: List[Dict], query_key: Dict):
+        super().__init__(session, query, total, items, query_key)
 
     # noinspection PyProtectedMember
     def prev(self, ) -> List[Dict]:
         """Returns a :class:`Pagination` object for the previous page."""
-        _offset_clause = (self.page - 1 - 1) * self.per_page
-        return self.session._find_many(self.name, self.query_key, self.filter_key, self.per_page,
+        self.page = self.page - 1
+        _offset_clause = (self.page - 1) * self.per_page
+        return self.session._find_many(self.cname, self.query_key, self.exclude_key, self.per_page,
                                        _offset_clause, self.sort)
 
     # noinspection PyProtectedMember
     def next(self, ) -> List[Dict]:
         """Returns a :class:`Pagination` object for the next page."""
-        _offset_clause = (self.page - 1 + 1) * self.per_page
-        return self.session._find_many(self.name, self.query_key, self.filter_key, self.per_page,
+        self.page = self.page + 1
+        _offset_clause = (self.page - 1) * self.per_page
+        return self.session._find_many(self.cname, self.query_key, self.exclude_key, self.per_page,
                                        _offset_clause, self.sort)
 
 
+# noinspection PyProtectedMember
 class Session(SessionMixIn, object):
     """
     query session
@@ -70,12 +73,12 @@ class Session(SessionMixIn, object):
         self.msg_zh = msg_zh
         self.max_per_page: int = max_per_page
 
-    def _insert_one(self, name: str, document: Union[List[Dict], Dict], insert_one: bool = True
+    def _insert_one(self, cname: str, document: Union[List[Dict], Dict], insert_one: bool = True
                     ) -> Union[Tuple[str], str]:
         """
         插入一个单独的文档
         Args:
-            name:collection name
+            cname:collection name
             document: document obj
             insert_one: insert_one insert_many的过滤条件，默认True
         Returns:
@@ -83,11 +86,11 @@ class Session(SessionMixIn, object):
         """
         try:
             if insert_one:
-                result = self.db.get_collection(name).insert_one(document)
+                result = self.db.get_collection(cname).insert_one(document)
             else:
-                result = self.db.get_collection(name).insert_many(document)
+                result = self.db.get_collection(cname).insert_many(document)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except DuplicateKeyError as e:
             raise MongoDuplicateKeyError("Duplicate key error, {}".format(e))
         except PyMongoError as err:
@@ -96,31 +99,31 @@ class Session(SessionMixIn, object):
         else:
             return str(result.inserted_id) if insert_one else (str(val) for val in result.inserted_ids)
 
-    def _insert_many(self, name: str, documents: List[Dict]) -> Tuple[str]:
+    def _insert_many(self, cname: str, document: List[Dict]) -> Tuple[str]:
         """
         批量插入文档
         Args:
-            name:collection name
-            documents: documents obj
+            cname:collection name
+            document: document obj
         Returns:
             返回插入的Objectid列表
         """
-        return self._insert_one(name, documents, insert_one=False)
+        return self._insert_one(cname, document, insert_one=False)
 
-    def _find_one(self, name: str, query_key: Dict, filter_key: Dict = None) -> Optional[Dict]:
+    def _find_one(self, cname: str, query_key: Dict, exclude_key: Dict = None) -> Optional[Dict]:
         """
         查询一个单独的document文档
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
-            filter_key: 过滤返回值中字段的过滤条件
+            exclude_key: 过滤返回值中字段的过滤条件
         Returns:
             返回匹配的document或者None
         """
         try:
-            find_data = self.db.get_collection(name).find_one(query_key, projection=filter_key)
+            find_data = self.db.get_collection(cname).find_one(query_key, projection=exclude_key)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
             aelog.exception("Find one document failed, {}".format(err))
             raise HttpError(400, message=mongo_msg[103][self.msg_zh])
@@ -129,14 +132,14 @@ class Session(SessionMixIn, object):
                 find_data["id"] = str(find_data.pop("_id"))
             return find_data
 
-    def _find_many(self, name: str, query_key: Dict, filter_key: Dict = None, limit: int = None,
+    def _find_many(self, cname: str, query_key: Dict, exclude_key: Dict = None, limit: int = None,
                    skip: int = None, sort: List[Tuple] = None) -> List[Dict]:
         """
-        批量查询documents文档
+        批量查询document文档
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
-            filter_key: 过滤返回值中字段的过滤条件
+            exclude_key: 过滤返回值中字段的过滤条件
             limit: 限制返回的document条数
             skip: 从查询结果中调过指定数量的document
             sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
@@ -145,43 +148,43 @@ class Session(SessionMixIn, object):
         """
         try:
             find_data = []
-            cursor = self.db.get_collection(name).find(query_key, projection=filter_key, limit=limit, skip=skip,
-                                                       sort=sort)
+            cursor = self.db.get_collection(cname).find(query_key, projection=exclude_key, limit=limit, skip=skip,
+                                                        sort=sort)
             for doc in cursor:
                 if doc.get("_id", None) is not None:
                     doc["id"] = str(doc.pop("_id"))
                 find_data.append(doc)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
-            aelog.exception("Find many documents failed, {}".format(err))
+            aelog.exception("Find many document failed, {}".format(err))
             raise HttpError(400, message=mongo_msg[104][self.msg_zh])
         else:
             return find_data
 
-    def _find_count(self, name: str, query_key: Dict) -> int:
+    def _find_count(self, cname: str, query_key: Dict) -> int:
         """
-        查询documents的数量
+        查询document的数量
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
         Returns:
             返回匹配的document数量
         """
         try:
-            return self.db.get_collection(name).count(query_key)
+            return self.db.get_collection(cname).count(query_key)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
-            aelog.exception("Find many documents failed, {}".format(err))
+            aelog.exception("Find many document failed, {}".format(err))
             raise HttpError(400, message=mongo_msg[104][self.msg_zh])
 
-    def _update_one(self, name: str, query_key: Dict, update_data: Dict, upsert: bool = False,
+    def _update_one(self, cname: str, query_key: Dict, update_data: Dict, upsert: bool = False,
                     update_one: bool = True) -> Dict:
         """
         更新匹配到的一个的document
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
             update_data: 对匹配的document进行更新的document
             upsert: 没有匹配到document的话执行插入操作，默认False
@@ -191,38 +194,38 @@ class Session(SessionMixIn, object):
         """
         try:
             if update_one:
-                result = self.db.get_collection(name).update_one(query_key, update_data, upsert=upsert)
+                result = self.db.get_collection(cname).update_one(query_key, update_data, upsert=upsert)
             else:
-                result = self.db.get_collection(name).update_many(query_key, update_data, upsert=upsert)
+                result = self.db.get_collection(cname).update_many(query_key, update_data, upsert=upsert)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except DuplicateKeyError as e:
             raise MongoDuplicateKeyError("Duplicate key error, {}".format(e))
         except PyMongoError as err:
-            aelog.exception("Update documents failed, {}".format(err))
+            aelog.exception("Update document failed, {}".format(err))
             raise HttpError(400, message=mongo_msg[101][self.msg_zh])
         else:
             return {"matched_count": result.matched_count, "modified_count": result.modified_count,
                     "upserted_id": str(result.upserted_id) if result.upserted_id else None}
 
-    def _update_many(self, name: str, query_key: Dict, update_data: Dict, upsert: bool = False) -> Dict:
+    def _update_many(self, cname: str, query_key: Dict, update_data: Dict, upsert: bool = False) -> Dict:
         """
         更新匹配到的所有的document
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
             update_data: 对匹配的document进行更新的document
             upsert: 没有匹配到document的话执行插入操作，默认False
         Returns:
             返回匹配的数量和修改数量的dict, eg:{"matched_count": 2, "modified_count": 2, "upserted_id":"f"}
         """
-        return self._update_one(name, query_key, update_data, upsert, update_one=False)
+        return self._update_one(cname, query_key, update_data, upsert, update_one=False)
 
-    def _delete_one(self, name: str, query_key: Dict, delete_one: bool = True) -> int:
+    def _delete_one(self, cname: str, query_key: Dict, delete_one: bool = True) -> int:
         """
         删除匹配到的一个的document
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
             delete_one: delete_one delete_many的匹配条件
         Returns:
@@ -230,235 +233,227 @@ class Session(SessionMixIn, object):
         """
         try:
             if delete_one:
-                result = self.db.get_collection(name).delete_one(query_key)
+                result = self.db.get_collection(cname).delete_one(query_key)
             else:
-                result = self.db.get_collection(name).delete_many(query_key)
+                result = self.db.get_collection(cname).delete_many(query_key)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
-            aelog.exception("Delete documents failed, {}".format(err))
+            aelog.exception("Delete document failed, {}".format(err))
             raise HttpError(400, message=mongo_msg[102][self.msg_zh])
         else:
             return result.deleted_count
 
-    def _delete_many(self, name: str, query_key: Dict) -> int:
+    def _delete_many(self, cname: str, query_key: Dict) -> int:
         """
         删除匹配到的所有的document
         Args:
-            name: collection name
+            cname: collection name
             query_key: 查询document的过滤条件
         Returns:
             返回删除的数量
         """
-        return self._delete_one(name, query_key, delete_one=False)
+        return self._delete_one(cname, query_key, delete_one=False)
 
-    def _aggregate(self, name: str, pipline: List[Dict]) -> List[Dict]:
+    def _aggregate(self, cname: str, pipline: List[Dict]) -> List[Dict]:
         """
         根据pipline进行聚合查询
         Args:
-            name: collection name
+            cname: collection name
             pipline: 聚合查询的pipeline,包含一个后者多个聚合命令
         Returns:
-            返回聚合后的documents
+            返回聚合后的document
         """
         result = []
         try:
-            for doc in self.db.get_collection(name).aggregate(pipline):
+            for doc in self.db.get_collection(cname).aggregate(pipline):
                 if doc.get("_id", None) is not None:
                     doc["id"] = str(doc.pop("_id"))
                 result.append(doc)
         except InvalidName as e:
-            raise MongoInvalidNameError("Invalid collention name {} {}".format(name, e))
+            raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
-            aelog.exception("Aggregate documents failed, {}".format(err))
+            aelog.exception("Aggregate document failed, {}".format(err))
             raise HttpError(400, message=mongo_msg[105][self.msg_zh])
         else:
             return result
 
-    def insert_many(self, name: str, documents: List[Dict]) -> Tuple[str]:
+    def insert_many(self, query: Query) -> Tuple[str]:
         """
         批量插入文档
         Args:
-            name:collection name
-            documents: documents obj
+            query: Query class
+                cname:collection name
+                document: document obj
         Returns:
             返回插入的转换后的_id列表
         """
-        if not isinstance(documents, MutableSequence):
-            raise MongoError("insert many document failed, documents is not a iterable type.")
-        documents = list(documents)
-        for document in documents:
-            if not isinstance(document, MutableMapping):
+        document: List[Dict] = query._insert_data
+        if not isinstance(document, MutableSequence):
+            raise MongoError("insert many document failed, document is not a iterable type.")
+        for document_ in document:
+            if not isinstance(document_, MutableMapping):
                 raise MongoError("insert one document failed, document is not a mapping type.")
-            self._update_doc_id(document)
-        return self._insert_many(name, documents)
+            self._update_doc_id(document_)
+        return self._insert_many(query._cname, document)
 
-    def insert_one(self, name: str, document: Dict) -> str:
+    def insert_one(self, query: Query) -> str:
         """
         插入一个单独的文档
         Args:
-            name:collection name
-            document: document obj
+            query: Query class
+                cname:collection name
+                document: document obj
         Returns:
             返回插入的转换后的_id
         """
+        document: Dict = query._insert_data
         if not isinstance(document, MutableMapping):
             raise MongoError("insert one document failed, document is not a mapping type.")
-        document = dict(document)
-        return self._insert_one(name, self._update_doc_id(document))
+        return self._insert_one(query._cname, self._update_doc_id(document))
 
-    def find_one(self, name: str, query_key: Dict = None, filter_key: Dict = None) -> Optional[Dict]:
+    def find_one(self, query: Query) -> Optional[Dict]:
         """
         查询一个单独的document文档
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
-            filter_key: 过滤返回值中字段的过滤条件
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
+                exclude_key: 过滤返回值中字段的过滤条件
         Returns:
             返回匹配的document或者None
         """
-        return self._find_one(name, self._update_query_key(query_key), filter_key=filter_key)
+        return self._find_one(query._cname, self._update_query_key(query._query_key), exclude_key=query._exclude_key)
 
     # noinspection DuplicatedCode
-    def find_many(self, name: str, query_key: Dict = None, filter_key: Dict = None, per_page: int = 0,
-                  page: int = 1, sort: List[Tuple] = None) -> Pagination:
+    def find_many(self, query: Query) -> Pagination:
         """
-        批量查询documents文档
+        批量查询document文档
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
-            filter_key: 过滤返回值中字段的过滤条件
-            per_page: 每页数据的数量
-            page: 查询第几页的数据
-            sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
+                exclude_key: 过滤返回值中字段的过滤条件
+                per_page: 每页数据的数量
+                page: 查询第几页的数据
+                sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
         Returns:
             Returns a :class:`Pagination` object.
         """
 
-        if self.max_per_page is not None:
-            per_page = min(per_page, self.max_per_page)
-
-        if page < 1:
-            page = 1
-
-        if per_page < 0:
-            per_page = 20
-
-        # 如果per_page为0,则证明要获取所有的数据，否则还是通常的逻辑
-        if per_page != 0:
-            _limit_clause = per_page
-            _offset_clause = (page - 1) * per_page
-        else:
-            _limit_clause = None
-            _offset_clause = None
-
-        query_key = self._update_query_key(query_key)
-        items = self._find_many(name, query_key, filter_key=filter_key, limit=_limit_clause,
-                                skip=_offset_clause, sort=sort)
+        query_key = self._update_query_key(query._query_key)
+        items = self._find_many(query._cname, query_key, exclude_key=query._exclude_key, limit=query._limit_clause,
+                                skip=query._offset_clause, sort=query._order_by)
 
         # No need to count if we're on the first page and there are fewer
         # items than we expected.
-        if page == 1 and len(items) < per_page:
+        if query._page == 1 and len(items) < query._per_page:
             total = len(items)
         else:
-            total = self.find_count(name, query_key)
+            total = self.find_count(query)
 
-        return Pagination(self, name, page, per_page, total, items, query_key, filter_key, sort)
+        return Pagination(self, query, total, items, query_key)
 
-    def find_all(self, name: str, query_key: Dict = None, filter_key: Dict = None,
-                 sort: List[Tuple] = None) -> List[Dict]:
+    def find_all(self, query: Query) -> List[Dict]:
         """
-        批量查询documents文档
+        批量查询document文档
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
-            filter_key: 过滤返回值中字段的过滤条件
-            sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
+                exclude_key: 过滤返回值中字段的过滤条件
+                sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
         Returns:
             返回匹配的document列表
         """
-        return self._find_many(name, self._update_query_key(query_key), filter_key=filter_key, sort=sort)
+        return self._find_many(query._cname, self._update_query_key(query._query_key),
+                               exclude_key=query._exclude_key, sort=query._order_by)
 
-    def find_count(self, name: str, query_key: Dict = None) -> int:
+    def find_count(self, query: Query) -> int:
         """
-        查询documents的数量
+        查询document的数量
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
         Returns:
             返回匹配的document数量
         """
-        return self._find_count(name, self._update_query_key(query_key))
+        return self._find_count(query._cname, self._update_query_key(query._query_key))
 
-    def update_many(self, name: str, query_key: Dict, update_data: Dict, upsert: bool = False) -> Dict:
+    def update_many(self, query: Query) -> Dict:
         """
         更新匹配到的所有的document
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
-            update_data: 对匹配的document进行更新的document
-            upsert: 没有匹配到document的话执行插入操作，默认False
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
+                update_data: 对匹配的document进行更新的document
+                upsert: 没有匹配到document的话执行插入操作，默认False
         Returns:
             返回匹配的数量和修改数量的dict, eg:{"matched_count": 2, "modified_count": 2, "upserted_id":"f"}
         """
-        update_data = dict(update_data)
-        return self._update_many(name, self._update_query_key(query_key),
-                                 self._update_update_data(update_data), upsert=upsert)
+        return self._update_many(query._cname, self._update_query_key(query._query_key),
+                                 self._update_update_data(query._update_data), upsert=query._upsert)
 
-    def update_one(self, name: str, query_key: Dict, update_data: Dict, upsert: bool = False) -> Dict:
+    def update_one(self, query: Query) -> Dict:
         """
         更新匹配到的一个的document
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
-            update_data: 对匹配的document进行更新的document
-            upsert: 没有匹配到document的话执行插入操作，默认False
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
+                update_data: 对匹配的document进行更新的document
+                upsert: 没有匹配到document的话执行插入操作，默认False
         Returns:
             返回匹配的数量和修改数量的dict, eg:{"matched_count": 1, "modified_count": 1, "upserted_id":"f"}
         """
-        update_data = dict(update_data)
-        return self._update_one(name, self._update_query_key(query_key),
-                                self._update_update_data(update_data), upsert=upsert)
+        return self._update_one(query._cname, self._update_query_key(query._query_key),
+                                self._update_update_data(query._update_data), upsert=query._upsert)
 
-    def delete_many(self, name: str, query_key: Dict) -> int:
+    def delete_many(self, query: Query) -> int:
         """
         删除匹配到的所有的document
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
         Returns:
             返回删除的数量
         """
-        return self._delete_many(name, self._update_query_key(query_key))
+        return self._delete_many(query._cname, self._update_query_key(query._query_key))
 
-    def delete_one(self, name: str, query_key: Dict) -> int:
+    def delete_one(self, query: Query) -> int:
         """
         删除匹配到的一个的document
         Args:
-            name: collection name
-            query_key: 查询document的过滤条件
+            query: Query class
+                cname: collection name
+                query_key: 查询document的过滤条件
         Returns:
             返回删除的数量
         """
-        return self._delete_one(name, self._update_query_key(query_key))
+        return self._delete_one(query._cname, self._update_query_key(query._query_key))
 
     # noinspection DuplicatedCode
-    def aggregate(self, name: str, pipline: List[Dict], page: int = None, limit: int = None) -> List[Dict]:
+    def aggregate(self, query: Query) -> List[Dict]:
         """
         根据pipline进行聚合查询
         Args:
-            name: collection name
-            pipline: 聚合查询的pipeline,包含一个后者多个聚合命令
-            limit: 每页数据的数量
-            page: 查询第几页的数据
+            query: Query class
+                cname: collection name
+                pipline: 聚合查询的pipeline,包含一个后者多个聚合命令
+                per_page: 每页数据的数量
+                page: 查询第几页的数据
         Returns:
-            返回聚合后的documents
+            返回聚合后的document
         """
+        pipline: List[Dict] = query._pipline
         if not isinstance(pipline, MutableSequence):
             raise MongoError("Aggregate query failed, pipline arg is not a iterable type.")
-        if page is not None and limit is not None:
-            pipline.extend([{'$skip': (int(page) - 1) * int(limit)}, {'$limit': int(limit)}])
-        return self._aggregate(name, pipline)
+        if query._limit_clause is not None and query._per_page is not None:
+            pipline.extend([{'$skip': query._limit_clause}, {'$limit': query._per_page}])
+        return self._aggregate(query._cname, pipline)
 
 
 class SyncMongo(AlchemyMixIn, BaseMongo):
@@ -483,7 +478,7 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
         """
         super().init_app(app, username=username, passwd=passwd, host=host, port=port, dbname=dbname,
                          pool_size=pool_size, **kwargs)
-        
+
         self._verify_flask_app()  # 校验APP类型是否正确
 
         @app.before_first_request

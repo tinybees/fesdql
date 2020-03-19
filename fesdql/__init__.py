@@ -9,20 +9,23 @@
 
 from ._cachelru import *
 from ._fields import *
+from .utils import *
+from .query import *
 from .async_mongo import *
 from .sync_mongo import *
-from .utils import *
 
 __all__ = (
     "LRI", "LRU",
 
     "fields",
 
+    "under2camel",
+
+    "Query",
+
     "AsyncMongo",
 
     "SyncMongo",
-
-    "under2camel",
 )
 
 __version__ = "1.0.1b1"

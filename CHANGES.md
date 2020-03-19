@@ -13,7 +13,12 @@
 - 增加Pagination类对于分页查询更简单，也更容易上手(sqlalchemy的写法)
 - 增加多库多session的同时切换使用功能，提供对访问多个库的支持功能
 - 配置增加fessql_binds用于多库的配置,并且增加配置校验功能
+- 增加Query类所有的查询操作均在Query类中完成，session类只负责具体的查询
+- Query类中增加生成增删改查SQL字符串语句的功能,方便jrpc调用
+- Query类中增加生成增删改查SQL对象的功能,方便普通调用
 
 #### Changed
 - 优化所有代码中没有类型标注的地方,都改为typing中的类型标注
 - 修改生成schema的功能适配字段映射,schema类字段增减等功能,适用于同一个schema适配不同的库表
+- 同步和异步模块中所有的session查询都改为按照Query类进行查询
+- 更改Pagination中上一页和下一页的功能
