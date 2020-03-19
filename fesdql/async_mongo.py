@@ -530,6 +530,17 @@ class AsyncMongo(AlchemyMixIn, BaseMongo):
             return db
 
     @property
+    def query(self, ) -> Query:
+        """
+
+        Args:
+
+        Returns:
+
+        """
+        return Query(self.max_per_page)
+
+    @property
     def session(self, ) -> Session:
         """
         session default bind
