@@ -6,7 +6,7 @@
 @software: PyCharm
 @time: 2020/3/1 上午12:00
 """
-
+import inspect
 from typing import (Dict, List, Tuple, Union)
 
 from marshmallow import Schema
@@ -70,10 +70,12 @@ class BaseQuery(object):
         Arg:
             modelclause: Schema或者collection的名称
         """
-        if issubclass(cclause, Schema):
+        if inspect.isclass(cclause) and issubclass(cclause, Schema):
             cclause = getattr(cclause, "__tablename__", None)
             if cclause is None:
                 raise FuncArgsError("cclause(Schema)中没有__tablename__属性")
+        elif not isinstance(cclause, str):
+            raise FuncArgsError("cclause只能为schema的子类或者字符串")
 
         self._cname = cclause
         return self
