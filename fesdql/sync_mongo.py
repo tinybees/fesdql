@@ -39,7 +39,7 @@ class Pagination(BasePagination):
     # noinspection PyProtectedMember
     def prev(self, ) -> List[Dict]:
         """Returns a :class:`Pagination` object for the previous page."""
-        self.page = self.page - 1
+        self.page -= 1
         _offset_clause = (self.page - 1) * self.per_page
         return self.session._find_many(self.cname, self.query_key, self.exclude_key, self.per_page,
                                        _offset_clause, self.sort)
@@ -47,7 +47,7 @@ class Pagination(BasePagination):
     # noinspection PyProtectedMember
     def next(self, ) -> List[Dict]:
         """Returns a :class:`Pagination` object for the next page."""
-        self.page = self.page + 1
+        self.page += 1
         _offset_clause = (self.page - 1) * self.per_page
         return self.session._find_many(self.cname, self.query_key, self.exclude_key, self.per_page,
                                        _offset_clause, self.sort)
@@ -481,18 +481,10 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
 
         self._verify_flask_app()  # 校验APP类型是否正确
 
-        @app.before_first_request
-        def open_connection():
-            """
-
-            Args:
-
-            Returns:
-
-            """
-            self.bind_pool[None] = self._create_engine(
-                host=self.host, port=self.port, username=self.username, passwd=self.passwd,
-                pool_size=self.pool_size, dbname=self.dbname)
+        # 创建默认的连接
+        self.bind_pool[None] = self._create_engine(
+            host=self.host, port=self.port, username=self.username, passwd=self.passwd,
+            pool_size=self.pool_size, dbname=self.dbname)
 
         @atexit.register
         def close_connection():

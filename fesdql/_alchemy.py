@@ -9,7 +9,7 @@
 import atexit
 import copy
 from math import ceil
-from typing import Dict, List, MutableMapping, MutableSequence, NoReturn, Tuple, Union
+from typing import Dict, List, MutableMapping, MutableSequence, NoReturn, Optional, Tuple, Type, Union
 
 from bson import ObjectId
 from bson.errors import BSONError
@@ -69,7 +69,7 @@ class BasePagination(object):
         raise NotImplementedError
 
     @property
-    def prev_num(self) -> int:
+    def prev_num(self) -> Optional[int]:
         """Number of the previous page."""
         if not self.has_prev:
             return None
@@ -90,7 +90,7 @@ class BasePagination(object):
         return self.page < self.pages
 
     @property
-    def next_num(self) -> int:
+    def next_num(self) -> Optional[int]:
         """Number of the next page"""
         if not self.has_next:
             return None
@@ -213,7 +213,7 @@ class BaseMongo(object):
         self.msg_zh = "msg_zh" if use_zh else "msg_en"
         self.max_per_page = kwargs.get("max_per_page", None) or self.max_per_page
 
-        # engine
+        # 创建默认的连接
         self.bind_pool[None] = self._create_engine(host=host, port=port, username=username, passwd=passwd,
                                                    pool_size=pool_size, dbname=dbname)
 
@@ -322,7 +322,7 @@ class AlchemyMixIn(object):
                 raise FuncArgsError("app type must be Flask.")
 
     @staticmethod
-    def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str = None,
+    def gen_schema(schema_cls: Type[Schema], class_suffix: str = None, table_suffix: str = None,
                    table_name: str = None, field_mapping: Dict[str, str] = None,
                    schema_fields: Union[Tuple[str], List[str]] = None):
         """

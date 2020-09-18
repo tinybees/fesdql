@@ -38,7 +38,7 @@ class Pagination(BasePagination):
     # noinspection PyProtectedMember
     async def prev(self, ) -> List[Dict]:
         """Returns a :class:`Pagination` object for the previous page."""
-        self.page = self.page - 1
+        self.page -= 1
         _offset_clause = (self.page - 1) * self.per_page
         return await self.session._find_many(self.cname, self.query_key, self.exclude_key, self.per_page,
                                              _offset_clause, self.sort)
@@ -46,7 +46,7 @@ class Pagination(BasePagination):
     # noinspection PyProtectedMember
     async def next(self, ) -> List[Dict]:
         """Returns a :class:`Pagination` object for the next page."""
-        self.page = self.page + 1
+        self.page += 1
         _offset_clause = (self.page - 1) * self.per_page
         return await self.session._find_many(self.cname, self.query_key, self.exclude_key, self.per_page,
                                              _offset_clause, self.sort)

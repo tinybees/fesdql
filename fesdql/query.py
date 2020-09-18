@@ -7,7 +7,7 @@
 @time: 2020/3/1 上午12:00
 """
 import inspect
-from typing import (Dict, List, Tuple, Union)
+from typing import (Dict, List, Optional, Tuple, Type, Union)
 
 from marshmallow import Schema
 
@@ -28,25 +28,25 @@ class BaseQuery(object):
 
         """
         # collection name
-        self._cname: str = None
+        self._cname: Optional[str] = None
         # 查询document的过滤条件
-        self._query_key: Dict = None
+        self._query_key: Optional[Dict] = None
         # 过滤返回值中字段的过滤条件
-        self._exclude_key: Dict = None
+        self._exclude_key: Optional[Dict] = None
         # 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
-        self._order_by: List = None
+        self._order_by: Optional[List] = None
         # 对匹配的document进行更新的document
-        self._update_data: Dict = None
+        self._update_data: Optional[Dict] = None
         # 没有匹配到document的话执行插入操作，默认False
         self._upsert: bool = False
         # 要插入的document obj
-        self._insert_data: Union[List[Dict], Dict] = None
+        self._insert_data: Optional[Union[List[Dict], Dict]] = None
         # limit 每页的数量
-        self._limit_clause: int = None
+        self._limit_clause: int = 20
         # offset 要offset的数量
-        self._offset_clause: int = None
+        self._offset_clause: int = 0
         # aggregate 聚合查询的pipeline,包含一个后者多个聚合命令
-        self._pipline: List[Dict] = None
+        self._pipline: Optional[List[Dict]] = None
 
     def where(self, **query_key) -> 'BaseQuery':
         """
@@ -62,7 +62,7 @@ class BaseQuery(object):
         self._query_key.update(query_key)
         return self
 
-    def collection(self, cclause: Union[Schema, str]) -> 'BaseQuery':
+    def collection(self, cclause: Union[Type[Schema], str]) -> 'BaseQuery':
         """
         return basequery construct with the given expression added to
         its model clause.
@@ -299,7 +299,6 @@ class Query(BaseQuery):
         Returns:
 
         """
-        result_sql = None
 
         if self._insert_data is not None:
             result_sql = {"cname": self._cname, "insert_data": self._insert_data, "max_per_page": self.max_per_page}
