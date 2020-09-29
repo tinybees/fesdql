@@ -9,7 +9,7 @@
 import atexit
 import copy
 from math import ceil
-from typing import Dict, List, MutableMapping, MutableSequence, NoReturn, Optional, Tuple, Type, Union
+from typing import Dict, List, MutableMapping, MutableSequence, Optional, Sequence, Type, Union
 
 from bson import ObjectId
 from bson.errors import BSONError
@@ -51,9 +51,9 @@ class BasePagination(object):
         # query key
         self.query_key: Dict = query_key
         # exclude key
-        self.exclude_key: Dict = query._exclude_key
+        self.exclude_key: Optional[Dict] = query._exclude_key
         # sort key
-        self.sort: List[Tuple] = query._order_by
+        self.sort: Optional[List] = query._order_by
 
     @property
     def pages(self) -> int:
@@ -63,10 +63,6 @@ class BasePagination(object):
         else:
             pages = int(ceil(self.total / float(self.per_page)))
         return pages
-
-    def prev(self, ) -> List[Dict]:
-        """Returns a :class:`Pagination` object for the previous page."""
-        raise NotImplementedError
 
     @property
     def prev_num(self) -> Optional[int]:
@@ -79,10 +75,6 @@ class BasePagination(object):
     def has_prev(self) -> bool:
         """True if a previous page exists"""
         return self.page > 1
-
-    async def next(self, ) -> List[Dict]:
-        """Returns a :class:`Pagination` object for the next page."""
-        raise NotImplementedError
 
     @property
     def has_next(self) -> bool:
@@ -103,7 +95,7 @@ class BaseMongo(object):
     """
 
     def __init__(self, app=None, *, username: str = "mongo", passwd: str = None, host: str = "127.0.0.1",
-                 port: int = 27017, dbname: str = None, pool_size: int = 50, **kwargs):
+                 port: int = 27017, dbname: str = "", pool_size: int = 50, **kwargs):
         """
         mongo 非阻塞工具类
         Args:
@@ -123,27 +115,28 @@ class BaseMongo(object):
 
         """
         self.app = app
-        self.engine_pool = {}  # engine pool
-        self.bind_pool = {}  # bind engine pool
-        self.session_pool = {}  # session pool
+        self.engine_pool: Dict = {}  # engine pool
+        self.bind_pool: Dict = {}  # bind engine pool
+        self.session_pool: Dict = {}  # session pool
         # default bind connection
-        self.username = username
-        self.passwd = passwd
-        self.host = host
-        self.port = port
-        self.dbname = dbname
-        self.pool_size = pool_size
+        self.username: str = username
+        self.passwd: Optional[str] = passwd
+        self.host: str = host
+        self.port: int = port
+        self.dbname: str = dbname
+        self.pool_size: int = pool_size
         # other info
         self.fesdql_binds: Dict = kwargs.get("fesdql_binds", {})  # binds config
-        self.message = kwargs.get("message", {})
-        self.use_zh = kwargs.get("use_zh", True)
-        self.max_per_page = kwargs.get("max_per_page", None)
-        self.msg_zh = None
+        self.message: Dict = kwargs.get("message", {})
+        self.use_zh: bool = kwargs.get("use_zh", True)
+        self.max_per_page: Optional[int] = kwargs.get("max_per_page", None)
+        self.msg_zh: str = ""
 
         if app is not None:
             self.init_app(app, username=self.username, passwd=self.passwd, host=self.host, port=self.port,
                           dbname=self.dbname, pool_size=self.pool_size, **kwargs)
 
+    # noinspection DuplicatedCode
     def init_app(self, app, *, username: str = None, passwd: str = None, host: str = None, port: int = None,
                  dbname: str = None, pool_size: int = None, **kwargs):
         """
@@ -162,15 +155,15 @@ class BaseMongo(object):
 
         self.app = app
 
-        self.username = username or app.config.get("FESDQL_MONGO_USERNAME", None) or self.username
-        passwd = passwd or app.config.get("FESDQL_MONGO_PASSWD", None) or self.passwd
-        self.host = host or app.config.get("FESDQL_MONGO_HOST", None) or self.host
-        self.port = port or app.config.get("FESDQL_MONGO_PORT", None) or self.port
-        self.dbname = dbname or app.config.get("FESDQL_MONGO_DBNAME", None) or self.dbname
-        self.pool_size = pool_size or app.config.get("FESDQL_MONGO_POOL_SIZE", None) or self.pool_size
+        self.username = username or app.config.get("FESDQL_MONGO_USERNAME") or self.username
+        passwd = passwd or app.config.get("FESDQL_MONGO_PASSWD") or self.passwd
+        self.host = host or app.config.get("FESDQL_MONGO_HOST") or self.host
+        self.port = port or app.config.get("FESDQL_MONGO_PORT") or self.port
+        self.dbname = dbname or app.config.get("FESDQL_MONGO_DBNAME") or self.dbname
+        self.pool_size = pool_size or app.config.get("FESDQL_MONGO_POOL_SIZE") or self.pool_size
 
-        message = kwargs.get("message") or app.config.get("FESDQL_MONGO_MESSAGE", None) or self.message
-        use_zh = kwargs.get("use_zh") or app.config.get("FESDQL_MONGO_MSGZH", None) or self.use_zh
+        message = kwargs.get("message") or app.config.get("FESDQL_MONGO_MESSAGE") or self.message
+        use_zh = kwargs.get("use_zh") or app.config.get("FESDQL_MONGO_MSGZH") or self.use_zh
 
         self.fesdql_binds = kwargs.get("fesdql_binds") or app.config.get(
             "FESDQL_BINDS", None) or self.fesdql_binds
@@ -181,6 +174,7 @@ class BaseMongo(object):
         self.msg_zh = "msg_zh" if use_zh else "msg_en"
         self.max_per_page = kwargs.get("max_per_page", None) or self.max_per_page
 
+    # noinspection DuplicatedCode
     def init_engine(self, *, username: str = None, passwd: str = None, host: str = None, port: int = None,
                     dbname: str = None, pool_size: int = None, **kwargs):
         """
@@ -195,11 +189,11 @@ class BaseMongo(object):
         Returns:
 
         """
-        username = username or self.username
+        self.username = username or self.username
         passwd = passwd or self.passwd
-        host = host or self.host
-        port = port or self.port
-        dbname = dbname or self.dbname
+        self.host = host or self.host
+        self.port = port or self.port
+        self.dbname = dbname or self.dbname
         self.pool_size = pool_size or self.pool_size
 
         message = kwargs.get("message") or self.message
@@ -208,14 +202,15 @@ class BaseMongo(object):
         self.fesdql_binds = kwargs.get("fesdql_binds") or self.fesdql_binds
         self.verify_binds()
 
-        passwd = passwd if passwd is None else str(passwd)
+        self.passwd = passwd if passwd is None else str(passwd)
         self.message = _verify_message(mongo_msg, message)
         self.msg_zh = "msg_zh" if use_zh else "msg_en"
         self.max_per_page = kwargs.get("max_per_page", None) or self.max_per_page
 
         # 创建默认的连接
-        self.bind_pool[None] = self._create_engine(host=host, port=port, username=username, passwd=passwd,
-                                                   pool_size=pool_size, dbname=dbname)
+        self.bind_pool[None] = self._create_engine(
+            host=self.host, port=self.port, username=self.username, passwd=self.passwd,
+            pool_size=self.pool_size, dbname=self.dbname)
 
         @atexit.register
         def close_connection():
@@ -230,11 +225,11 @@ class BaseMongo(object):
                 if engine:
                     engine.close()
 
-    def _create_engine(self, host: str, port: int, username: str, passwd: str, pool_size: int,
+    def _create_engine(self, host: str, port: int, username: str, passwd: Optional[str], pool_size: int,
                        dbname: str) -> Database:
         raise NotImplementedError
 
-    def _get_engine(self, bind: str) -> NoReturn:
+    def _get_engine(self, bind: str):
         """
         session bind
         Args:
@@ -247,10 +242,10 @@ class BaseMongo(object):
         if bind not in self.bind_pool:
             bind_conf: Dict = self.fesdql_binds[bind]
             self.bind_pool[bind] = self._create_engine(
-                host=bind_conf.get("fesdql_mongo_host"), port=bind_conf.get("fesdql_mongo_port"),
-                username=bind_conf.get("fesdql_mongo_username"), passwd=bind_conf.get("fesdql_mongo_passwd"),
+                host=bind_conf["fesdql_mongo_host"], port=bind_conf["fesdql_mongo_port"],
+                username=bind_conf["fesdql_mongo_username"], passwd=bind_conf["fesdql_mongo_passwd"],
                 pool_size=bind_conf.get("fesdql_mongo_pool_size") or self.pool_size,
-                dbname=bind_conf.get("fesdql_mongo_dbname"))
+                dbname=bind_conf["fesdql_mongo_dbname"])
 
     def verify_binds(self, ):
         """
@@ -324,7 +319,7 @@ class AlchemyMixIn(object):
     @staticmethod
     def gen_schema(schema_cls: Type[Schema], class_suffix: str = None, table_suffix: str = None,
                    table_name: str = None, field_mapping: Dict[str, str] = None,
-                   schema_fields: Union[Tuple[str], List[str]] = None):
+                   schema_fields: Union[Sequence] = None):
         """
         用于根据现有的schema生成新的schema类
 
@@ -406,7 +401,7 @@ class SessionMixIn(object):
         return update_data
 
     @staticmethod
-    def _update_query_key(query_key: Dict) -> Dict:
+    def _update_query_key(query_key: Optional[Dict]) -> Dict:
         """
         更新查询的query
         Args:

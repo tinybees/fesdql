@@ -28,7 +28,7 @@ class BaseQuery(object):
 
         """
         # collection name
-        self._cname: Optional[str] = None
+        self._cname: str = ""
         # 查询document的过滤条件
         self._query_key: Optional[Dict] = None
         # 过滤返回值中字段的过滤条件
@@ -36,17 +36,17 @@ class BaseQuery(object):
         # 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
         self._order_by: Optional[List] = None
         # 对匹配的document进行更新的document
-        self._update_data: Optional[Dict] = None
+        self._update_data: Dict = {}
         # 没有匹配到document的话执行插入操作，默认False
         self._upsert: bool = False
         # 要插入的document obj
-        self._insert_data: Optional[Union[List[Dict], Dict]] = None
+        self._insert_data: Union[List[Dict], Dict] = {}
         # limit 每页的数量
         self._limit_clause: int = 20
         # offset 要offset的数量
         self._offset_clause: int = 0
         # aggregate 聚合查询的pipeline,包含一个后者多个聚合命令
-        self._pipline: Optional[List[Dict]] = None
+        self._pipline: List[Dict] = []
 
     def where(self, **query_key) -> 'BaseQuery':
         """
@@ -70,14 +70,14 @@ class BaseQuery(object):
         Arg:
             modelclause: Schema或者collection的名称
         """
-        if inspect.isclass(cclause) and issubclass(cclause, Schema):
+        if inspect.isclass(cclause) and issubclass(cclause, Schema):  # type: ignore
             cclause = getattr(cclause, "__tablename__", None)
             if cclause is None:
                 raise FuncArgsError("cclause(Schema)中没有__tablename__属性")
         elif not isinstance(cclause, str):
             raise FuncArgsError("cclause只能为schema的子类或者字符串")
 
-        self._cname = cclause
+        self._cname = cclause  # type: ignore
         return self
 
     table = collection
@@ -135,8 +135,6 @@ class BaseQuery(object):
         Returns:
             返回更新的条数
         """
-        if self._pipline is None:
-            self._pipline = []
         self._pipline.append(pipline)
         return self
 
@@ -156,13 +154,13 @@ class Query(BaseQuery):
 
         """
         # per page max count
-        self.max_per_page: int = max_per_page
+        self.max_per_page: Optional[int] = max_per_page
         #: the current page number (1 indexed)
-        self._page = None
+        self._page: int = 1
         #: the number of items to be displayed on a page.
-        self._per_page = None
+        self._per_page: int = 20
         # aggregation
-        self._is_aggregation = None
+        self._is_aggregation: Optional[bool] = None
 
         super().__init__()
 
@@ -176,24 +174,24 @@ class Query(BaseQuery):
 
         """
         cls_instance = cls(max_per_page=kwargs.get("max_per_page"))
-        cls_instance._cname = kwargs.get("cname")
+        cls_instance._cname = kwargs.get("cname", "")
         cls_instance._query_key = kwargs.get("query_key")
         # filter key
         cls_instance._exclude_key = kwargs.get("exclude_key")
         cls_instance._order_by = kwargs.get("order_by")
         # update
-        cls_instance._update_data = kwargs.get("update_data")
+        cls_instance._update_data = kwargs["update_data"]
         cls_instance._upsert = kwargs.get("upsert", False)
         # insert
-        cls_instance._insert_data = kwargs.get("insert_data")
+        cls_instance._insert_data = kwargs["insert_data"]
         # limit, offset
-        cls_instance._limit_clause = kwargs.get("limit_clause")
-        cls_instance._offset_clause = kwargs.get("offset_clause")
+        cls_instance._limit_clause = kwargs["limit_clause"]
+        cls_instance._offset_clause = kwargs["offset_clause"]
         # aggregate query
-        cls_instance._pipline = kwargs.get("pipline")
-        cls_instance._page = kwargs.get("page")
+        cls_instance._pipline = kwargs["pipline"]
+        cls_instance._page = kwargs.get("page", 1)
         #: the number of items to be displayed on a page.
-        cls_instance._per_page = kwargs.get("per_page")
+        cls_instance._per_page = kwargs.get("per_page", 20)
         return cls_instance
 
     def _verify_collection(self, ):
@@ -204,7 +202,7 @@ class Query(BaseQuery):
         Returns:
 
         """
-        if self._cname is None:
+        if not self._cname:
             raise FuncArgsError("Query 对象中缺少collection name(cname)")
 
     def insert_query(self, insert_data: Union[List[Dict], Dict]) -> 'Query':
@@ -300,9 +298,9 @@ class Query(BaseQuery):
 
         """
 
-        if self._insert_data is not None:
+        if self._insert_data:
             result_sql = {"cname": self._cname, "insert_data": self._insert_data, "max_per_page": self.max_per_page}
-        elif self._update_data is not None:
+        elif self._update_data:
             result_sql = {"cname": self._cname, "query_key": self._query_key, "update_data": self._update_data,
                           "upsert": self._upsert, "max_per_page": self.max_per_page}
         elif self._is_aggregation:

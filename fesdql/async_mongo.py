@@ -32,7 +32,7 @@ class Pagination(BasePagination):
 
     """
 
-    def __init__(self, session, query: Query, total: int, items: List[Dict], query_key: Dict):
+    def __init__(self, session: 'Session', query: Query, total: int, items: List[Dict], query_key: Dict):
         super().__init__(session, query, total, items, query_key)
 
     # noinspection PyProtectedMember
@@ -70,7 +70,7 @@ class Session(SessionMixIn, object):
         self.db: Database = db
         self.message: Dict = message
         self.msg_zh: str = msg_zh
-        self.max_per_page: int = max_per_page
+        self.max_per_page: Optional[int] = max_per_page
 
     async def _insert_one(self, cname: str, document: Union[Dict, List[Dict]], insert_one: bool = True
                           ) -> Union[str, Tuple[str]]:
@@ -96,7 +96,7 @@ class Session(SessionMixIn, object):
             aelog.exception("Insert one document failed, {}".format(err))
             raise HttpError(400, message=self.message[100][self.msg_zh], error=err)
         else:
-            return str(result.inserted_id) if insert_one else (str(val) for val in result.inserted_ids)
+            return str(result.inserted_id) if insert_one else (str(val) for val in result.inserted_ids)  # type: ignore
 
     async def _insert_many(self, cname: str, document: List[Dict]) -> Tuple[str]:
         """
@@ -107,7 +107,7 @@ class Session(SessionMixIn, object):
         Returns:
             返回插入的Objectid列表
         """
-        return await self._insert_one(cname, document, insert_one=False)
+        return await self._insert_one(cname, document, insert_one=False)  # type: ignore
 
     async def _find_one(self, cname: str, query_key: Dict, exclude_key: Dict = None) -> Optional[Dict]:
         """
@@ -131,24 +131,24 @@ class Session(SessionMixIn, object):
                 find_data["id"] = str(find_data.pop("_id"))
             return find_data
 
-    async def _find_many(self, cname: str, query_key: Dict, exclude_key: Dict = None, limit: int = None,
-                         skip: int = None, sort: List[Tuple] = None) -> List[Dict]:
+    async def _find_many(self, cname: str, query_key: Dict, exclude_key: Dict = None, skip: int = 0,
+                         limit: int = 0, sort: List[Tuple] = None) -> List[Dict]:
         """
         批量查询document文档
         Args:
             cname: collection name
             query_key: 查询document的过滤条件
             exclude_key: 过滤返回值中字段的过滤条件
-            limit: 限制返回的document条数
             skip: 从查询结果中调过指定数量的document
+            limit: 限制返回的document条数
             sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
         Returns:
             返回匹配的document列表
         """
         try:
             find_data = []
-            cursor = self.db.get_collection(cname).find(query_key, projection=exclude_key, limit=limit, skip=skip,
-                                                        sort=sort)
+            cursor = self.db.get_collection(cname).find(
+                query_key, projection=exclude_key, skip=skip, limit=limit, sort=sort)
             # find_data = await cursor.to_list(None)
             async for doc in cursor:
                 if doc.get("_id", None) is not None:
@@ -288,7 +288,7 @@ class Session(SessionMixIn, object):
         Returns:
             返回插入的转换后的_id列表
         """
-        document: List[Dict] = query._insert_data
+        document: List[Dict] = query._insert_data  # type: ignore
         if not isinstance(document, MutableSequence):
             raise MongoError("insert many document failed, document is not a iterable type.")
         for document_ in document:
@@ -307,10 +307,10 @@ class Session(SessionMixIn, object):
         Returns:
             返回插入的转换后的_id
         """
-        document: Dict = query._insert_data
+        document: Dict = query._insert_data  # type: ignore
         if not isinstance(document, MutableMapping):
             raise MongoError("insert one document failed, document is not a mapping type.")
-        return await self._insert_one(query._cname, self._update_doc_id(document))
+        return await self._insert_one(query._cname, self._update_doc_id(document))  # type: ignore
 
     async def find_one(self, query: Query) -> Optional[Dict]:
         """
@@ -422,7 +422,8 @@ class Session(SessionMixIn, object):
         Returns:
             返回删除的数量
         """
-        return await self._delete_many(query._cname, self._update_query_key(query._query_key))
+        return await self._delete_many(query._cname,
+                                       self._update_query_key(query._query_key))
 
     async def delete_one(self, query: Query) -> int:
         """
@@ -452,7 +453,7 @@ class Session(SessionMixIn, object):
         pipline: List[Dict] = query._pipline
         if not isinstance(pipline, MutableSequence):
             raise MongoError("Aggregate query failed, pipline arg is not a iterable type.")
-        if query._limit_clause is not None and query._per_page is not None:
+        if query._limit_clause and query._per_page:
             pipline.extend([{'$skip': query._limit_clause}, {'$limit': query._per_page}])
         return await self._aggregate(query._cname, pipline)
 
@@ -508,7 +509,7 @@ class AsyncMongo(AlchemyMixIn, BaseMongo):
                 if engine:
                     engine.close()
 
-    def _create_engine(self, host: str, port: int, username: str, passwd: str, pool_size: int,
+    def _create_engine(self, host: str, port: int, username: str, passwd: Optional[str], pool_size: int,
                        dbname: str) -> Database:
         # host和port确定了mongodb实例,username确定了权限,其他的无关紧要
         engine_name = f"{host}_{port}_{username}"

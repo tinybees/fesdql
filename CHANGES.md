@@ -1,5 +1,11 @@
 ## fesdql Changelog
 
+###[1.0.1b3] - 2020-9-29
+
+#### Changed
+- 更改所有mypy提示的类型标注
+- 更改同步异步分页limit和page的默认值
+
 ###[1.0.1b2] - 2020-9-18
 
 #### Changed
