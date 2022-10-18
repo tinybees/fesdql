@@ -42,11 +42,11 @@ setup(name='fesdql',
                         'motor>=1.2.2',
                         'pymongo>=3.8.0',
                         'marshmallow>=3.0.0'],
-      python_requires=">=3.5",
+      python_requires=">=3.6",
       keywords="mongo, asyncio,sync, crud, session",
       license='MIT',
       classifiers=[
-          'Development Status :: 4 - Beta',
+          'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
           'License :: OSI Approved :: MIT License',
           'Natural Language :: Chinese (Simplified)',
@@ -56,8 +56,7 @@ setup(name='fesdql',
           'Topic :: Software Development :: Libraries :: Python Modules',
           'Topic :: Utilities',
           'Programming Language :: Python',
-          'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
-          'Programming Language :: Python :: 3.8', ]
+          'Programming Language :: Python :: 3.8']
       )

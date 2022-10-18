@@ -154,18 +154,19 @@ class BaseMongo(object):
         """
 
         self.app = app
+        config: Dict = app.config if getattr(app, "config", None) else app.state.config
 
-        self.username = username or app.config.get("FESDQL_MONGO_USERNAME") or self.username
-        passwd = passwd or app.config.get("FESDQL_MONGO_PASSWD") or self.passwd
-        self.host = host or app.config.get("FESDQL_MONGO_HOST") or self.host
-        self.port = port or app.config.get("FESDQL_MONGO_PORT") or self.port
-        self.dbname = dbname or app.config.get("FESDQL_MONGO_DBNAME") or self.dbname
-        self.pool_size = pool_size or app.config.get("FESDQL_MONGO_POOL_SIZE") or self.pool_size
+        self.username = username or config.get("FESDQL_MONGO_USERNAME") or self.username
+        passwd = passwd or config.get("FESDQL_MONGO_PASSWD") or self.passwd
+        self.host = host or config.get("FESDQL_MONGO_HOST") or self.host
+        self.port = port or config.get("FESDQL_MONGO_PORT") or self.port
+        self.dbname = dbname or config.get("FESDQL_MONGO_DBNAME") or self.dbname
+        self.pool_size = pool_size or config.get("FESDQL_MONGO_POOL_SIZE") or self.pool_size
 
-        message = kwargs.get("message") or app.config.get("FESDQL_MONGO_MESSAGE") or self.message
-        use_zh = kwargs.get("use_zh") or app.config.get("FESDQL_MONGO_MSGZH") or self.use_zh
+        message = kwargs.get("message") or config.get("FESDQL_MONGO_MESSAGE") or self.message
+        use_zh = kwargs.get("use_zh") or config.get("FESDQL_MONGO_MSGZH") or self.use_zh
 
-        self.fesdql_binds = kwargs.get("fesdql_binds") or app.config.get(
+        self.fesdql_binds = kwargs.get("fesdql_binds") or config.get(
             "FESDQL_BINDS", None) or self.fesdql_binds
         self.verify_binds()
 
@@ -315,6 +316,26 @@ class AlchemyMixIn(object):
         else:
             if not isinstance(self.app, Flask):
                 raise FuncArgsError("app type must be Flask.")
+
+    # noinspection PyUnresolvedReferences
+    def _verify_fastapi_app(self, ):
+        """
+        校验APP类型是否正确
+
+        暂时只支持fastapi框架
+        Args:
+
+        Returns:
+
+        """
+
+        try:
+            from fastapi import FastAPI
+        except ImportError as e:
+            raise ImportError(f"FastAPI import error {e}.")
+        else:
+            if not isinstance(self.app, FastAPI):
+                raise FuncArgsError("app type must be FastAPI.")
 
     @staticmethod
     def gen_schema(schema_cls: Type[Schema], class_suffix: str = None, table_suffix: str = None,

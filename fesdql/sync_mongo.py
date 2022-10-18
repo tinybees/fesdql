@@ -9,7 +9,7 @@
 
 import atexit
 from collections.abc import MutableMapping, MutableSequence
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aelog
 from pymongo import MongoClient as MongodbClient
@@ -73,7 +73,8 @@ class Session(SessionMixIn, object):
         self.msg_zh = msg_zh
         self.max_per_page: Optional[int] = max_per_page
 
-    def _insert_one(self, cname: str, document: Union[List[Dict], Dict], insert_one: bool = True
+    # noinspection Mypy
+    def _insert_one(self, cname: str, document: Union[List[Dict[str, Any]], Dict[str, Any]], insert_one: bool = True
                     ) -> Union[Tuple[str], str]:
         """
         插入一个单独的文档
@@ -86,9 +87,9 @@ class Session(SessionMixIn, object):
         """
         try:
             if insert_one:
-                result = self.db.get_collection(cname).insert_one(document)
+                result = self.db.get_collection(cname).insert_one(document)  # type: ignore
             else:
-                result = self.db.get_collection(cname).insert_many(document)
+                result = self.db.get_collection(cname).insert_many(document)  # type: ignore
         except InvalidName as e:
             raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except DuplicateKeyError as e:
@@ -132,8 +133,9 @@ class Session(SessionMixIn, object):
                 find_data["id"] = str(find_data.pop("_id"))
             return find_data
 
+    # noinspection PyTypeChecker,PyUnresolvedReferences
     def _find_many(self, cname: str, query_key: Dict, exclude_key: Dict = None, skip: int = 0,
-                   limit: int = 0, sort: List[Tuple] = None) -> List[Dict]:
+                   limit: int = 0, sort: Union[List[Tuple[str, int]]] = None) -> List[Dict]:
         """
         批量查询document文档
         Args:
@@ -147,7 +149,7 @@ class Session(SessionMixIn, object):
             返回匹配的document列表
         """
         try:
-            find_data = []
+            find_data: List[Dict[str, Any]] = []
             cursor = self.db.get_collection(cname).find(
                 query_key, projection=exclude_key, skip=skip, limit=limit, sort=sort)
             for doc in cursor:
@@ -255,6 +257,7 @@ class Session(SessionMixIn, object):
         """
         return self._delete_one(cname, query_key, delete_one=False)
 
+    # noinspection PyUnresolvedReferences,PyTypeChecker
     def _aggregate(self, cname: str, pipline: List[Dict]) -> List[Dict]:
         """
         根据pipline进行聚合查询
@@ -264,7 +267,7 @@ class Session(SessionMixIn, object):
         Returns:
             返回聚合后的document
         """
-        result = []
+        result: List[Dict[str, Any]] = []
         try:
             for doc in self.db.get_collection(cname).aggregate(pipline):
                 if doc.get("_id", None) is not None:
@@ -476,10 +479,13 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
         Returns:
 
         """
+        if getattr(app, "config", None):
+            self._verify_flask_app()  # 校验APP类型是否正确
+        else:
+            self._verify_fastapi_app()
+
         super().init_app(app, username=username, passwd=passwd, host=host, port=port, dbname=dbname,
                          pool_size=pool_size, **kwargs)
-
-        self._verify_flask_app()  # 校验APP类型是否正确
 
         # 创建默认的连接
         self.bind_pool[None] = self._create_engine(

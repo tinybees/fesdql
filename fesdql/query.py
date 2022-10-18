@@ -71,13 +71,15 @@ class BaseQuery(object):
             modelclause: Schema或者collection的名称
         """
         if inspect.isclass(cclause) and issubclass(cclause, Schema):  # type: ignore
-            cclause = getattr(cclause, "__tablename__", None)
-            if cclause is None:
+            cclause_ = getattr(cclause, "__tablename__", None)
+            if cclause_ is None:
                 raise FuncArgsError("cclause(Schema)中没有__tablename__属性")
-        elif not isinstance(cclause, str):
+            self._cname = cclause_
+        elif isinstance(cclause, str):
+            self._cname = cclause
+        else:
             raise FuncArgsError("cclause只能为schema的子类或者字符串")
 
-        self._cname = cclause  # type: ignore
         return self
 
     table = collection

@@ -1,5 +1,11 @@
 ## fesdql Changelog
 
+###[1.0.1] - 2020-10-18
+
+#### Changed
+- 更改现有的查询适配fastapi框架
+
+
 ###[1.0.1b3] - 2020-9-29
 
 #### Changed

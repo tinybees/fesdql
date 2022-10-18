@@ -26,6 +26,8 @@ __all__ = (
     "AsyncMongo",
 
     "SyncMongo",
+
+    "__version__",
 )
 
-__version__ = "1.0.1b3"
+__version__ = "1.0.1"
