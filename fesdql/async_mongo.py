@@ -17,10 +17,9 @@ from pymongo.errors import (ConnectionFailure, DuplicateKeyError, InvalidName, P
 
 from ._alchemy import AlchemyMixIn, BaseMongo, BasePagination, SessionMixIn
 from .err import HttpError, MongoDuplicateKeyError, MongoError, MongoInvalidNameError
+from .query import Query
 
 __all__ = ("AsyncMongo",)
-
-from .query import Query
 
 
 class Pagination(BasePagination):
@@ -478,10 +477,9 @@ class AsyncMongo(AlchemyMixIn, BaseMongo):
         Returns:
 
         """
+        self._verify_sanic_app(app)  # 校验APP类型是否正确
         super().init_app(app, username=username, passwd=passwd, host=host, port=port, dbname=dbname,
                          pool_size=pool_size, **kwargs)
-
-        self._verify_sanic_app()  # 校验APP类型是否正确
 
         @app.listener('before_server_start')
         async def open_connection(app_, loop):

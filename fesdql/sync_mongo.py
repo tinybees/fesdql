@@ -480,9 +480,9 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
 
         """
         if getattr(app, "config", None):
-            self._verify_flask_app()  # 校验APP类型是否正确
+            self._verify_flask_app(app)  # 校验APP类型是否正确
         else:
-            self._verify_fastapi_app()
+            self._verify_fastapi_app(app)
 
         super().init_app(app, username=username, passwd=passwd, host=host, port=port, dbname=dbname,
                          pool_size=pool_size, **kwargs)

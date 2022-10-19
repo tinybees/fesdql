@@ -278,7 +278,8 @@ class AlchemyMixIn(object):
     """
 
     # noinspection PyUnresolvedReferences
-    def _verify_sanic_app(self, ):
+    @staticmethod
+    def _verify_sanic_app(app):
         """
         校验APP类型是否正确
 
@@ -294,11 +295,12 @@ class AlchemyMixIn(object):
         except ImportError as e:
             raise ImportError(f"Sanic import error {e}.")
         else:
-            if not isinstance(self.app, Sanic):
+            if not isinstance(app, Sanic):
                 raise FuncArgsError("app type must be Sanic.")
 
     # noinspection PyUnresolvedReferences
-    def _verify_flask_app(self, ):
+    @staticmethod
+    def _verify_flask_app(app):
         """
         校验APP类型是否正确
 
@@ -314,11 +316,12 @@ class AlchemyMixIn(object):
         except ImportError as e:
             raise ImportError(f"Flask import error {e}.")
         else:
-            if not isinstance(self.app, Flask):
+            if not isinstance(app, Flask):
                 raise FuncArgsError("app type must be Flask.")
 
     # noinspection PyUnresolvedReferences
-    def _verify_fastapi_app(self, ):
+    @staticmethod
+    def _verify_fastapi_app(app):
         """
         校验APP类型是否正确
 
@@ -334,7 +337,7 @@ class AlchemyMixIn(object):
         except ImportError as e:
             raise ImportError(f"FastAPI import error {e}.")
         else:
-            if not isinstance(self.app, FastAPI):
+            if not isinstance(app, FastAPI):
                 raise FuncArgsError("app type must be FastAPI.")
 
     @staticmethod
