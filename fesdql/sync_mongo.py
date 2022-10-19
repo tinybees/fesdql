@@ -21,10 +21,10 @@ from ._alchemy import AlchemyMixIn, BaseMongo, BasePagination, SessionMixIn
 from ._err_msg import mongo_msg
 from .err import HttpError, MongoDuplicateKeyError, MongoError, MongoInvalidNameError
 
-__all__ = ("SyncMongo",)
+__all__ = ("SyncMongo", "SyncSession", "SyncPagination")
 
 
-class Pagination(BasePagination):
+class SyncPagination(BasePagination):
     """Internal helper class returned by :meth:`BaseQuery.paginate`.  You
     can also construct it from any other SQLAlchemy query object if you are
     working with other libraries.  Additionally it is possible to pass `None`
@@ -33,7 +33,7 @@ class Pagination(BasePagination):
 
     """
 
-    def __init__(self, session: 'Session', query: Query, total: int, items: List[Dict], query_key: Dict):
+    def __init__(self, session: 'SyncSession', query: Query, total: int, items: List[Dict], query_key: Dict):
         super().__init__(session, query, total, items, query_key)
 
     # noinspection PyProtectedMember
@@ -54,7 +54,7 @@ class Pagination(BasePagination):
 
 
 # noinspection PyProtectedMember
-class Session(SessionMixIn, object):
+class SyncSession(SessionMixIn, object):
     """
     query session
     """
@@ -329,7 +329,7 @@ class Session(SessionMixIn, object):
         return self._find_one(query._cname, self._update_query_key(query._query_key), exclude_key=query._exclude_key)
 
     # noinspection DuplicatedCode
-    def find_many(self, query: Query) -> Pagination:
+    def find_many(self, query: Query) -> SyncPagination:
         """
         批量查询document文档
         Args:
@@ -341,7 +341,7 @@ class Session(SessionMixIn, object):
                 page: 查询第几页的数据
                 sort: 排序方式，可以自定多种字段的排序，值为一个列表的键值对， eg:[('field1', pymongo.ASCENDING)]
         Returns:
-            Returns a :class:`Pagination` object.
+            Returns a :class:`SyncPagination` object.
         """
 
         query_key = self._update_query_key(query._query_key)
@@ -355,7 +355,7 @@ class Session(SessionMixIn, object):
         else:
             total = self.find_count(query)
 
-        return Pagination(self, query, total, items, query_key)
+        return SyncPagination(self, query, total, items, query_key)
 
     def find_all(self, query: Query) -> List[Dict]:
         """
@@ -538,7 +538,7 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
         return Query(self.max_per_page)
 
     @property
-    def session(self, ) -> Session:
+    def session(self, ) -> SyncSession:
         """
         session default bind
         Args:
@@ -549,10 +549,10 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
         if None not in self.bind_pool:
             raise ValueError("Default bind is not exist.")
         if None not in self.session_pool:
-            self.session_pool[None] = Session(self.bind_pool[None], self.message, self.msg_zh)
+            self.session_pool[None] = SyncSession(self.bind_pool[None], self.message, self.msg_zh)
         return self.session_pool[None]
 
-    def gen_session(self, bind: str) -> Session:
+    def gen_session(self, bind: str) -> SyncSession:
         """
         session bind
         Args:
@@ -562,5 +562,5 @@ class SyncMongo(AlchemyMixIn, BaseMongo):
         """
         self._get_engine(bind)
         if bind not in self.session_pool:
-            self.session_pool[bind] = Session(self.bind_pool[bind], self.message, self.msg_zh)
+            self.session_pool[bind] = SyncSession(self.bind_pool[bind], self.message, self.msg_zh)
         return self.session_pool[bind]
