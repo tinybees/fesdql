@@ -7,7 +7,7 @@
 @time: 2020/3/1 上午12:00
 """
 import inspect
-from typing import (Dict, List, Optional, Tuple, Type, Union)
+from typing import (Any, Dict, List, Optional, Tuple, Type, Union)
 
 from marshmallow import Schema
 
@@ -128,7 +128,7 @@ class BaseQuery(object):
         self._exclude_key.update(exclude)
         return self
 
-    def aggregation(self, pipline) -> 'BaseQuery':
+    def aggregation(self, pipline: List[Dict[str, Any]]) -> 'BaseQuery':
         """
         aggregation query
 
@@ -137,7 +137,7 @@ class BaseQuery(object):
         Returns:
             返回更新的条数
         """
-        self._pipline.append(pipline)
+        self._pipline.extend(pipline)
         return self
 
 

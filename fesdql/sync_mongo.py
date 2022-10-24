@@ -271,7 +271,7 @@ class SyncSession(SessionMixIn, object):
         try:
             for doc in self.db.get_collection(cname).aggregate(pipline):
                 if doc.get("_id", None) is not None:
-                    doc["id"] = str(doc.pop("_id"))
+                    doc["id"] = doc.pop("_id")
                 result.append(doc)
         except InvalidName as e:
             raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
@@ -454,8 +454,8 @@ class SyncSession(SessionMixIn, object):
         pipline: List[Dict] = query._pipline
         if not isinstance(pipline, MutableSequence):
             raise MongoError("Aggregate query failed, pipline arg is not a iterable type.")
-        if query._limit_clause and query._per_page:
-            pipline.extend([{'$skip': query._limit_clause}, {'$limit': query._per_page}])
+        if query._limit_clause and query._offset_clause:
+            pipline.extend([{'$limit': query._limit_clause}, {'$skip': query._offset_clause}])
         return self._aggregate(query._cname, pipline)
 
 
