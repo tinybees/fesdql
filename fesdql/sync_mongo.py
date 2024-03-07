@@ -111,7 +111,8 @@ class SyncSession(SessionMixIn, object):
         """
         return self._insert_one(cname, document, insert_one=False)  # type: ignore
 
-    def _find_one(self, cname: str, query_key: Dict, exclude_key: Dict = None) -> Optional[Dict]:
+    def _find_one(self, cname: str, query_key: Dict, exclude_key: Dict = None,
+                  sort: Union[List[Tuple[str, int]]] = None) -> Optional[Dict]:
         """
         查询一个单独的document文档
         Args:
@@ -122,7 +123,7 @@ class SyncSession(SessionMixIn, object):
             返回匹配的document或者None
         """
         try:
-            find_data = self.db.get_collection(cname).find_one(query_key, projection=exclude_key)
+            find_data = self.db.get_collection(cname).find_one(query_key, projection=exclude_key, sort=sort)
         except InvalidName as e:
             raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
@@ -326,7 +327,8 @@ class SyncSession(SessionMixIn, object):
         Returns:
             返回匹配的document或者None
         """
-        return self._find_one(query._cname, self._update_query_key(query._query_key), exclude_key=query._exclude_key)
+        return self._find_one(query._cname, self._update_query_key(query._query_key), exclude_key=query._exclude_key,
+                              sort=query._order_by)
 
     # noinspection DuplicatedCode
     def find_many(self, query: Query) -> SyncPagination:

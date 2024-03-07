@@ -108,7 +108,8 @@ class AsyncSession(SessionMixIn, object):
         """
         return await self._insert_one(cname, document, insert_one=False)  # type: ignore
 
-    async def _find_one(self, cname: str, query_key: Dict, exclude_key: Dict = None) -> Optional[Dict]:
+    async def _find_one(self, cname: str, query_key: Dict, exclude_key: Dict = None,
+                        sort: List[Tuple] = None) -> Optional[Dict]:
         """
         查询一个单独的document文档
         Args:
@@ -119,7 +120,7 @@ class AsyncSession(SessionMixIn, object):
             返回匹配的document或者None
         """
         try:
-            find_data = await self.db.get_collection(cname).find_one(query_key, projection=exclude_key)
+            find_data = await self.db.get_collection(cname).find_one(query_key, projection=exclude_key, sort=sort)
         except InvalidName as e:
             raise MongoInvalidNameError("Invalid collention name {} {}".format(cname, e))
         except PyMongoError as err:
@@ -323,7 +324,7 @@ class AsyncSession(SessionMixIn, object):
             返回匹配的document或者None
         """
         return await self._find_one(query._cname, self._update_query_key(query._query_key),
-                                    exclude_key=query._exclude_key)
+                                    exclude_key=query._exclude_key, sort=query._order_by)
 
     # noinspection DuplicatedCode
     async def find_many(self, query: Query) -> AsyncPagination:
